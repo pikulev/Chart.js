@@ -3147,7 +3147,6 @@
 					point.draw();
 				});
 				setcnt++;
-				console.log(setcnt);
 			},this);
 
 		}
