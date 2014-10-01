@@ -42,6 +42,14 @@
 
 		//Boolean - Whether to fill the dataset with a colour
 		datasetFill : true,
+		
+		//main scale and scale drawn to the left of the graph
+		mainScale : 0,
+		
+		//draw a scale to the right of the graph
+		drawScaleRight: true,
+		//what scale to draw to the right
+		drawScaleRightScale: 1,
 
 		//String - A legend template
 		legendTemplate : "<ul class=\"<%=name.toLowerCase()%>-legend\"><% for (var i=0; i<datasets.length; i++){%><li><span style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%if(datasets[i].label){%><%=datasets[i].label%><%}%></li><%}%></ul>"
@@ -54,6 +62,10 @@
 		name: "MultiAxisLine",
 		defaults : defaultConfig,
 		initialize:  function(data){
+			if(this.options.drawScaleRight){
+				this.chart.width -= 40; //todo: find out where that number came from
+			}
+			
 			//Declare the extension of the default point, to cater for the options passed in to the constructor
 			this.PointClass = Chart.Point.extend({
 				strokeWidth : this.options.pointDotStrokeWidth,
@@ -65,9 +77,32 @@
 					return (Math.pow(mouseX-this.x, 2) < Math.pow(this.radius + this.hitDetectionRadius,2));
 				}
 			});
-			this.scale = [];
-			this.datasets = [];
+			
 
+			this.ScaleClass = Chart.Scale.extend({
+				drawLabelRight : function(){
+					var ctx = this.ctx,
+					yLabelGap = (this.endPoint - this.startPoint) / this.steps,
+					xStart = Math.round(this.xScalePaddingLeft);
+					if (this.display){
+						ctx.fillStyle = this.textColor;
+						ctx.font = this.font;
+						helpers.each(this.yLabels,function(labelString,index){
+							var yLabelCenter = this.endPoint - (yLabelGap * index),
+								linePositionY = Math.round(yLabelCenter);
+
+							ctx.textAlign = "right";
+							ctx.textBaseline = "middle";
+							if (this.showLabels){
+								ctx.fillText(labelString,xStart + this.width - 10, yLabelCenter);
+							}
+						}, this);
+					}
+				}
+			});
+			this.scales = [];
+			this.datasets = [];
+			
 			//Set up tooltip events on the chart 
 			if (this.options.showTooltips){
 				helpers.bindEvents(this, this.options.tooltipEvents, function(evt){
@@ -116,18 +151,17 @@
 
 				this.eachPoints(function(point, index){
 					helpers.extend(point, {
-						x: this.scale[dataset.axis].calculateX(index),
-						y: this.scale[dataset.axis].endPoint
+						x: this.scales[dataset.axis].calculateX(index),
+						y: this.scales[dataset.axis].endPoint
 					});
 					point.save();
-				}, this);
-
+				}, this);				
 			},this);
 
 			this.render();
 		},
 		update : function(){
-			helpers.each(this.scale, function(myScale){
+			helpers.each(this.scales, function(myScale){
 				myScale.update();
 			});
 			// Reset any highlight colours before updating.
@@ -210,7 +244,7 @@
 					max: this.options.scaleStartValue + (this.options.scaleSteps * this.options.scaleStepWidth)
 				});
 			}
-			this.scale[axis] = new Chart.Scale(scaleOptions);
+			this.scales[axis] = new this.ScaleClass(scaleOptions);
 		},
 		addData : function(valuesArray,label){
 			//Map the values array for each of the datasets
@@ -219,19 +253,19 @@
 				this.datasets[datasetIndex].points.push(new this.PointClass({
 					value : value,
 					label : label,
-					x: this.scale[datasetIndex].calculateX(this.scale.valuesCount+1),
-					y: this.scale[datasetIndex].endPoint,
+					x: this.scales[datasetIndex].calculateX(this.scales.valuesCount+1),
+					y: this.scales[datasetIndex].endPoint,
 					strokeColor : this.datasets[datasetIndex].pointStrokeColor,
 					fillColor : this.datasets[datasetIndex].pointColor
 				}));
 			},this);
 
-			this.scale[0].addXLabel(label);
+			this.scales[this.options.mainScale].addXLabel(label);
 			//Then re-render the chart.
 			this.update();
 		},
 		removeData : function(){
-			this.scale[0].removeXLabel();
+			this.scales[this.options.mainScale].removeXLabel();
 			//Then re-render the chart.
 			helpers.each(this.datasets,function(dataset){
 				dataset.points.shift();
@@ -243,7 +277,7 @@
 				height : this.chart.height,
 				width : this.chart.width
 			});
-			this.scale[0].update(newScaleProps);
+			this.scales[this.options.mainScale].update(newScaleProps);
 		},
 		draw : function(ease){
 			var easingDecimal = ease || 1;
@@ -262,7 +296,13 @@
 				return helpers.findPreviousWhere(collection, hasValue, index) || point;
 			};
 
-			this.scale[0].draw(easingDecimal);
+			helpers.each(this.scales, function(myScale, index){
+				if(index == this.options.mainScale){
+					myScale.draw();
+				}else if(this.options.drawScaleRight && this.options.drawScaleRightScale == index){
+					myScale.drawLabelRight();
+				}
+			}, this);
 
 			helpers.each(this.datasets,function(dataset){
 				var pointsWithValues = helpers.where(dataset.points, hasValue);
@@ -273,8 +313,8 @@
 				helpers.each(dataset.points, function(point, index){
 					if (point.hasValue()){
 						point.transition({
-							y : this.scale[dataset.axis].calculateY(point.value),
-							x : this.scale[0].calculateX(index)
+							y : this.scales[dataset.axis].calculateY(point.value),
+							x : this.scales[this.options.mainScale].calculateX(index)
 						}, easingDecimal);
 					}
 				},this);
@@ -295,19 +335,19 @@
 						// Prevent the bezier going outside of the bounds of the graph
 
 						// Cap puter bezier handles to the upper/lower scale bounds
-						if (point.controlPoints.outer.y > this.scale[dataset.axis].endPoint){
-							point.controlPoints.outer.y = this.scale[dataset.axis].endPoint;
+						if (point.controlPoints.outer.y > this.scales[dataset.axis].endPoint){
+							point.controlPoints.outer.y = this.scales[dataset.axis].endPoint;
 						}
-						else if (point.controlPoints.outer.y < this.scale[dataset.axis].startPoint){
-							point.controlPoints.outer.y = this.scale[dataset.axis].startPoint;
+						else if (point.controlPoints.outer.y < this.scales[dataset.axis].startPoint){
+							point.controlPoints.outer.y = this.scales[dataset.axis].startPoint;
 						}
 
 						// Cap inner bezier handles to the upper/lower scale bounds
-						if (point.controlPoints.inner.y > this.scale[dataset.axis].endPoint){
-							point.controlPoints.inner.y = this.scale[dataset.axis].endPoint;
+						if (point.controlPoints.inner.y > this.scales[dataset.axis].endPoint){
+							point.controlPoints.inner.y = this.scales[dataset.axis].endPoint;
 						}
-						else if (point.controlPoints.inner.y < this.scale[dataset.axis].startPoint){
-							point.controlPoints.inner.y = this.scale[dataset.axis].startPoint;
+						else if (point.controlPoints.inner.y < this.scales[dataset.axis].startPoint){
+							point.controlPoints.inner.y = this.scales[dataset.axis].startPoint;
 						}
 					},this);
 				}
@@ -345,8 +385,8 @@
 
 				if (this.options.datasetFill && pointsWithValues.length > 0){
 					//Round off the line by going to the base of the chart, back to the start, then fill.
-					ctx.lineTo(pointsWithValues[pointsWithValues.length - 1].x, this.scale[dataset.axis].endPoint);
-					ctx.lineTo(pointsWithValues[0].x, this.scale[dataset.axis].endPoint);
+					ctx.lineTo(pointsWithValues[pointsWithValues.length - 1].x, this.scales[dataset.axis].endPoint);
+					ctx.lineTo(pointsWithValues[0].x, this.scales[dataset.axis].endPoint);
 					ctx.fillStyle = dataset.fillColor;
 					ctx.closePath();
 					ctx.fill();
