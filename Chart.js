@@ -2872,11 +2872,10 @@
 			}
 
 			//Iterate through each of the datasets, and build this into a property of the chart
-			var axisnumber = 0;
 			helpers.each(data.datasets,function(dataset){
 
 				var datasetObject = {
-					axis : axisnumber,
+					axis : dataset.axis,
 					label : dataset.label || null,
 					fillColor : dataset.fillColor,
 					strokeColor : dataset.strokeColor,
@@ -2896,23 +2895,21 @@
 						strokeColor : dataset.pointStrokeColor,
 						fillColor : dataset.pointColor,
 						highlightFill : dataset.pointHighlightFill || dataset.pointColor,
-						highlightStroke : dataset.pointHighlightStroke || dataset.pointStrokeColor
+						highlightStroke : dataset.pointHighlightStroke || dataset.pointStrokeColor,
+						axis: dataset.axis
 					}));
 				},this);
 
-				this.buildScale(data.labels, datasetObject.points);
+				this.buildScale(data.labels, dataset.axis);
 
 				this.eachPoints(function(point, index){
 					helpers.extend(point, {
-						x: this.scale[axisnumber].calculateX(index),
-						y: this.scale[axisnumber].endPoint
+						x: this.scale[dataset.axis].calculateX(index),
+						y: this.scale[dataset.axis].endPoint
 					});
 					point.save();
 				}, this);
 
-				//currently each set has its own axis
-				//update possible to make this adjustable.
-				axisnumber++;
 			},this);
 
 			this.render();
@@ -2945,18 +2942,20 @@
 			},this);
 			return pointsArray;
 		},
-		buildScale : function(labels, points){
+		buildScale : function(labels, axis){
 			var self = this;
 
 			var dataTotal = function(){
 				var values = [];
-				for (var key in points){
-					values.push(points[key].value);
-				}
+				self.eachPoints(function(point){
+					if(point.axis == axis){
+						values.push(point.value);
+					}
+				});
 
 				return values;
-			};
-						
+			};						
+			
 			var scaleOptions = {
 				templateString : this.options.scaleLabel,
 				height : this.chart.height,
@@ -2999,8 +2998,7 @@
 					max: this.options.scaleStartValue + (this.options.scaleSteps * this.options.scaleStepWidth)
 				});
 			}
-
-			this.scale.push(new Chart.Scale(scaleOptions));
+			this.scale[axis] = new Chart.Scale(scaleOptions);
 		},
 		addData : function(valuesArray,label){
 			//Map the values array for each of the datasets
