@@ -1333,6 +1333,7 @@
 
 			this.width = longestTextWidth + (this.xPadding*2);
 
+
 			var halfHeight = this.height/2;
 
 			//Check to ensure the height will fit on the canvas
@@ -2832,11 +2833,12 @@
 		
 		//main scale and scale drawn to the left of the graph
 		mainScale : 0,
-		
+		//what scale to draw to the right if drawScaleRight set to true:
+		rightScale: 1,
 		//draw a scale to the right of the graph
 		drawScaleRight: true,
-		//what scale to draw to the right
-		drawScaleRightScale: 1,
+		//add horizontal strokes for right scale
+		rightScaleStrokes: false,
 
 		//String - A legend template
 		legendTemplate : "<ul class=\"<%=name.toLowerCase()%>-legend\"><% for (var i=0; i<datasets.length; i++){%><li><span style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%if(datasets[i].label){%><%=datasets[i].label%><%}%></li><%}%></ul>"
@@ -2867,26 +2869,62 @@
 			
 
 			this.ScaleClass = Chart.Scale.extend({
-				drawLabelRight : function(){
-					var ctx = this.ctx,
-					yLabelGap = (this.endPoint - this.startPoint) / this.steps,
-					xStart = Math.round(this.xScalePaddingLeft);
-					if (this.display){
-						ctx.fillStyle = this.textColor;
-						ctx.font = this.font;
-						helpers.each(this.yLabels,function(labelString,index){
-							var yLabelCenter = this.endPoint - (yLabelGap * index),
-								linePositionY = Math.round(yLabelCenter);
-
-							ctx.textAlign = "right";
-							ctx.textBaseline = "middle";
-							if (this.showLabels){
-								ctx.fillText(labelString,xStart + this.width - 10, yLabelCenter);
-							}
-						}, this);
+				drawMulti : function(){
+					if(!this.rightScale){
+						this.draw();
+						return;
 					}
+					if(this.rightScale){
+						var ctx = this.ctx,
+						yLabelGap = (this.endPoint - this.startPoint) / this.steps,
+						xStart = Math.round(this.xScalePaddingLeft);
+						if (this.display){
+							ctx.fillStyle = this.textColor;
+							ctx.font = this.font;
+							helpers.each(this.yLabels,function(labelString,index){
+								var yLabelCenter = this.endPoint - (yLabelGap * index),
+									linePositionY = Math.round(yLabelCenter);
+	
+								ctx.textAlign = "right";
+								ctx.textBaseline = "middle";
+								if (this.showLabels){
+									ctx.fillText(labelString,xStart + this.width - 10, yLabelCenter);
+								}
+								if(this.rightScaleStrokes){
+									ctx.beginPath();
+									if (index > 0){
+										// This is a grid line in the centre, so drop that
+										ctx.lineWidth = this.gridLineWidth;
+										ctx.strokeStyle = this.gridLineColor;
+									} else {
+										// This is the first line on the scale
+										ctx.lineWidth = this.lineWidth;
+										ctx.strokeStyle = this.lineColor;
+									}
+		
+									linePositionY += helpers.aliasPixel(ctx.lineWidth);
+		
+									ctx.moveTo(xStart, linePositionY);
+									ctx.lineTo(this.width, linePositionY);
+									ctx.stroke();
+									ctx.closePath();
+		
+									ctx.lineWidth = this.lineWidth;
+									ctx.strokeStyle = this.lineColor;
+									ctx.beginPath();
+									ctx.moveTo(xStart - 5, linePositionY);
+									ctx.lineTo(xStart, linePositionY);
+									ctx.stroke();
+									ctx.closePath();
+								}
+	
+							},this);
+						}
+					}
+					return;
 				}
 			});
+			this.ScaleClass.temp = 'test';
 			this.scales = [];
 			this.datasets = [];
 			
@@ -2945,6 +2983,7 @@
 				}, this);				
 			},this);
 
+			
 			this.render();
 		},
 		update : function(){
@@ -2990,6 +3029,8 @@
 			};						
 			
 			var scaleOptions = {
+				rightScale : this.options.rightScale == axis,
+				rightScaleStrokes : this.options.rightScaleStrokes,
 				templateString : this.options.scaleLabel,
 				height : this.chart.height,
 				width : this.chart.width,
@@ -3084,11 +3125,7 @@
 			};
 
 			helpers.each(this.scales, function(myScale, index){
-				if(index == this.options.mainScale){
-					myScale.draw();
-				}else if(this.options.drawScaleRight && this.options.drawScaleRightScale == index){
-					myScale.drawLabelRight();
-				}
+					myScale.drawMulti();
 			}, this);
 
 			helpers.each(this.datasets,function(dataset){
