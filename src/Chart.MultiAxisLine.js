@@ -68,7 +68,7 @@
 			this.scale = [];
 			this.datasets = [];
 
-			//Set up tooltip events on the chart
+			//Set up tooltip events on the chart 
 			if (this.options.showTooltips){
 				helpers.bindEvents(this, this.options.tooltipEvents, function(evt){
 					var activePoints = (evt.type !== 'mouseout') ? this.getPointsAtEvent(evt) : [];
@@ -84,9 +84,11 @@
 			}
 
 			//Iterate through each of the datasets, and build this into a property of the chart
+			var axisnumber = 0;
 			helpers.each(data.datasets,function(dataset){
 
 				var datasetObject = {
+					axis : axisnumber,
 					label : dataset.label || null,
 					fillColor : dataset.fillColor,
 					strokeColor : dataset.strokeColor,
@@ -95,8 +97,7 @@
 					points : []
 				};
 
-				this.datasets.push(datasetObject);
-				
+				this.datasets.push(datasetObject);				
 
 				helpers.each(dataset.data,function(dataPoint,index){
 					//Add a new point for each piece of data, passing any required data to draw.
@@ -115,18 +116,23 @@
 
 				this.eachPoints(function(point, index){
 					helpers.extend(point, {
-						x: this.scale[0].calculateX(index),
-						y: this.scale[0].endPoint
+						x: this.scale[axisnumber].calculateX(index),
+						y: this.scale[axisnumber].endPoint
 					});
 					point.save();
 				}, this);
 
+				//currently each set has its own axis
+				//update possible to make this adjustable.
+				axisnumber++;
 			},this);
 
 			this.render();
 		},
 		update : function(){
-			this.scale[0].update();
+			helpers.each(this.scale, function(myScale){
+				myScale.update();
+			});
 			// Reset any highlight colours before updating.
 			helpers.each(this.activeElements, function(activeElement){
 				activeElement.restore(['fillColor', 'strokeColor']);
@@ -162,8 +168,7 @@
 
 				return values;
 			};
-			
-			
+						
 			var scaleOptions = {
 				templateString : this.options.scaleLabel,
 				height : this.chart.height,
@@ -211,14 +216,13 @@
 		},
 		addData : function(valuesArray,label){
 			//Map the values array for each of the datasets
-
 			helpers.each(valuesArray,function(value,datasetIndex){
 				//Add a new point for each piece of data, passing any required data to draw.
 				this.datasets[datasetIndex].points.push(new this.PointClass({
 					value : value,
 					label : label,
-					x: this.scale[0].calculateX(this.scale.valuesCount+1),
-					y: this.scale[0].endPoint,
+					x: this.scale[datasetIndex].calculateX(this.scale.valuesCount+1),
+					y: this.scale[datasetIndex].endPoint,
 					strokeColor : this.datasets[datasetIndex].pointStrokeColor,
 					fillColor : this.datasets[datasetIndex].pointColor
 				}));
@@ -262,19 +266,17 @@
 
 			this.scale[0].draw(easingDecimal);
 
-
-			var setcnt = 0;
 			helpers.each(this.datasets,function(dataset){
 				var pointsWithValues = helpers.where(dataset.points, hasValue);
-
+				
 				//Transition each point first so that the line and point drawing isn't out of sync
 				//We can use this extra loop to calculate the control points of this dataset also in this loop
 
 				helpers.each(dataset.points, function(point, index){
 					if (point.hasValue()){
 						point.transition({
-							y : this.scale[setcnt].calculateY(point.value),
-							x : this.scale[setcnt].calculateX(index)
+							y : this.scale[dataset.axis].calculateY(point.value),
+							x : this.scale[0].calculateX(index)
 						}, easingDecimal);
 					}
 				},this);
@@ -295,19 +297,19 @@
 						// Prevent the bezier going outside of the bounds of the graph
 
 						// Cap puter bezier handles to the upper/lower scale bounds
-						if (point.controlPoints.outer.y > this.scale[setcnt].endPoint){
-							point.controlPoints.outer.y = this.scale[setcnt].endPoint;
+						if (point.controlPoints.outer.y > this.scale[dataset.axis].endPoint){
+							point.controlPoints.outer.y = this.scale[dataset.axis].endPoint;
 						}
-						else if (point.controlPoints.outer.y < this.scale[setcnt].startPoint){
-							point.controlPoints.outer.y = this.scale[setcnt].startPoint;
+						else if (point.controlPoints.outer.y < this.scale[dataset.axis].startPoint){
+							point.controlPoints.outer.y = this.scale[dataset.axis].startPoint;
 						}
 
 						// Cap inner bezier handles to the upper/lower scale bounds
-						if (point.controlPoints.inner.y > this.scale[setcnt].endPoint){
-							point.controlPoints.inner.y = this.scale[setcnt].endPoint;
+						if (point.controlPoints.inner.y > this.scale[dataset.axis].endPoint){
+							point.controlPoints.inner.y = this.scale[dataset.axis].endPoint;
 						}
-						else if (point.controlPoints.inner.y < this.scale[setcnt].startPoint){
-							point.controlPoints.inner.y = this.scale[setcnt].startPoint;
+						else if (point.controlPoints.inner.y < this.scale[dataset.axis].startPoint){
+							point.controlPoints.inner.y = this.scale[dataset.axis].startPoint;
 						}
 					},this);
 				}
@@ -345,8 +347,8 @@
 
 				if (this.options.datasetFill && pointsWithValues.length > 0){
 					//Round off the line by going to the base of the chart, back to the start, then fill.
-					ctx.lineTo(pointsWithValues[pointsWithValues.length - 1].x, this.scale[setcnt].endPoint);
-					ctx.lineTo(pointsWithValues[0].x, this.scale[0].endPoint);
+					ctx.lineTo(pointsWithValues[pointsWithValues.length - 1].x, this.scale[dataset.axis].endPoint);
+					ctx.lineTo(pointsWithValues[0].x, this.scale[dataset.axis].endPoint);
 					ctx.fillStyle = dataset.fillColor;
 					ctx.closePath();
 					ctx.fill();
@@ -358,7 +360,7 @@
 				helpers.each(pointsWithValues,function(point){
 					point.draw();
 				});
-				setcnt++;
+				
 			},this);
 
 		}
