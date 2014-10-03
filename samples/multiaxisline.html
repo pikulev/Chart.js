@@ -40,7 +40,7 @@
 					data : [randomScalingFactor(10),randomScalingFactor(10),randomScalingFactor(10),randomScalingFactor(10),randomScalingFactor(10),randomScalingFactor(10),randomScalingFactor(10)]
 				},
 				{
-					axis : 1,
+					axis : 2,
 					label: "My third dataset",
 					fillColor : "rgba(151,187,0,0.2)",
 					strokeColor : "rgba(151,187,0,1)",
@@ -58,7 +58,9 @@
 	window.onload = function(){
 		var ctx = document.getElementById("canvas").getContext("2d");
 		window.myLine = new Chart(ctx).MultiAxisLine(lineChartData, {
-			responsive: true
+			responsive: true,
+			drawScale: [0,1,2],
+			drawScaleStroke: [0,2]
 		});
 	}
 

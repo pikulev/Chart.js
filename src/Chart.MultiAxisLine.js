@@ -43,15 +43,15 @@
 		//Boolean - Whether to fill the dataset with a colour
 		datasetFill : true,
 		
-		//main scale and scale drawn to the left of the graph
+		//Number - the scale that will be used as the main scale.
 		mainScale : 0,
-		//what scale to draw to the right if drawScaleRight set to true:
-		rightScale: 1,
-		//draw a scale to the right of the graph
-		drawScaleRight: true,
-		//add horizontal strokes for right scale
-		rightScaleStrokes: false,
 
+		//Number[] - what scales should be drawn
+		drawScale: [0],
+
+		//Number[] - what scales get their horizontal storkes drawn
+		drawScaleStroke: [0],
+		
 		//String - A legend template
 		legendTemplate : "<ul class=\"<%=name.toLowerCase()%>-legend\"><% for (var i=0; i<datasets.length; i++){%><li><span style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%if(datasets[i].label){%><%=datasets[i].label%><%}%></li><%}%></ul>"
 
@@ -63,9 +63,6 @@
 		name: "MultiAxisLine",
 		defaults : defaultConfig,
 		initialize:  function(data){
-			if(this.options.drawScaleRight){
-				this.chart.width -= 40; //todo: find out where that number came from
-			}
 			
 			//Declare the extension of the default point, to cater for the options passed in to the constructor
 			this.PointClass = Chart.Point.extend({
@@ -81,12 +78,39 @@
 			
 
 			this.ScaleClass = Chart.Scale.extend({
+				//overwrite fit from chart.scale to add extra padding
+				fit: function(){
+					//@TODO direct copy of parent fit.
+					//need to extend, but I don't know how.
+					this.startPoint = (this.display) ? this.fontSize : 0;
+					this.endPoint = (this.display) ? this.height - (this.fontSize * 1.5) - 5 : this.height; // -5 to pad labels
+					this.startPoint += this.padding;
+					this.endPoint -= this.padding;
+					var cachedHeight = this.endPoint - this.startPoint,
+						cachedYLabelWidth;
+					this.calculateYRange(cachedHeight);
+					this.buildYLabels();
+					this.calculateXLabelRotation();
+					while((cachedHeight > this.endPoint - this.startPoint)){
+						cachedHeight = this.endPoint - this.startPoint;
+						cachedYLabelWidth = this.yLabelWidth;
+						this.calculateYRange(cachedHeight);
+						this.buildYLabels();
+						if (cachedYLabelWidth < this.yLabelWidth){
+							this.calculateXLabelRotation();
+						}
+					}
+					
+					
+					//only local change to fit function additions:
+					this.xScalePaddingLeft += (this.totalScales -1 ) * 40; //@TODO fix magic '40'
+
+				},
 				drawMulti : function(){
-					if(!this.rightScale){
+					if(this.axis == this.mainScale){
 						this.draw();
 						return;
-					}
-					if(this.rightScale){
+					}else if (this.drawScale){
 						var ctx = this.ctx,
 						yLabelGap = (this.endPoint - this.startPoint) / this.steps,
 						xStart = Math.round(this.xScalePaddingLeft);
@@ -100,9 +124,11 @@
 								ctx.textAlign = "right";
 								ctx.textBaseline = "middle";
 								if (this.showLabels){
-									ctx.fillText(labelString,xStart + this.width - 10, yLabelCenter);
+									//@TODO fix magic '40'
+									var shift = this.axis * 40;
+									ctx.fillText(labelString, xStart - shift, yLabelCenter);
 								}
-								if(this.rightScaleStrokes){
+								if(this.drawStroke){
 									ctx.beginPath();
 									if (index > 0){
 										// This is a grid line in the centre, so drop that
@@ -241,8 +267,11 @@
 			};						
 			
 			var scaleOptions = {
-				rightScale : this.options.rightScale == axis,
-				rightScaleStrokes : this.options.rightScaleStrokes,
+				mainScale : this.options.mainScale,
+				drawScale: this.options.drawScale.indexOf(axis) > -1 ? 1 : 0,
+				drawStroke : this.options.drawScaleStroke.indexOf(axis) > -1 ? 1 : 0,
+				totalScales : this.options.drawScale.length,
+				axis : axis,
 				templateString : this.options.scaleLabel,
 				height : this.chart.height,
 				width : this.chart.width,
