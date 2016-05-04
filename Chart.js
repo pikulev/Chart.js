@@ -8,7 +8,7 @@
  * https://github.com/nnnick/Chart.js/blob/master/LICENSE.md
  */
 
-
+(function(context){
 (function(){
 
 	"use strict";
@@ -1940,7 +1940,7 @@
 		return Chart;
 	};
 
-}).call(window);
+}).call(context);
 
 (function(){
 	"use strict";
@@ -2235,7 +2235,7 @@
 	});
 
 
-}).call(window);
+}).call(context);
 (function(){
 	"use strict";
 
@@ -2419,7 +2419,7 @@
 		defaults : helpers.merge(defaultConfig,{percentageInnerCutout : 0})
 	});
 
-}).call(window);
+}).call(context);
 (function(){
 	"use strict";
 
@@ -2785,7 +2785,7 @@
 	});
 
 
-}).call(window);
+}).call(context);
 (function(){
 	"use strict";
 
@@ -3258,7 +3258,7 @@
 	});
 
 
-}).call(window);
+}).call(context);
 (function(){
 	"use strict";
 
@@ -3506,7 +3506,7 @@
 		}
 	});
 
-}).call(window);
+}).call(context);
 (function(){
 	"use strict";
 
@@ -3849,4 +3849,5 @@
 
 
 
-}).call(window);
+}).call(context);
+})(window);
