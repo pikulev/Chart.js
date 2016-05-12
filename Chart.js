@@ -834,10 +834,6 @@
 
 			retinaScale(this.chart);
 			
-			if(this.reflow) {
-				this.reflow();
-			}
-			
 			if (typeof callback === "function"){
 				callback.apply(this, Array.prototype.slice.call(arguments, 1));
 			}
@@ -1922,6 +1918,11 @@
 					// Cascade the resize event down to the chart.
 					if (instance.options.responsive){
 						instance.resize(instance.render, true);
+						
+									
+						if(instance.reflow) {
+							instance.reflow();
+						}
 					}
 				});
 			}, 50);
