@@ -833,7 +833,11 @@
 			canvas.height =  this.chart.height = newHeight;
 
 			retinaScale(this.chart);
-
+			
+			if(this.reflow) {
+				this.reflow();
+			}
+			
 			if (typeof callback === "function"){
 				callback.apply(this, Array.prototype.slice.call(arguments, 1));
 			}
